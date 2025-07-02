@@ -15,8 +15,8 @@ const UPLOAD_STEPS: UploadStep[] = [
   },
   {
     id: 2,
-    title: 'Análise do Arquivo',
-    description: 'Detectando estrutura e tipos de dados',
+    title: 'Seleção da Coleção',
+    description: 'Escolha ou crie uma coleção',
     completed: false,
     current: false
   },
@@ -76,14 +76,20 @@ export function useUpload() {
     
     if (file) {
       updateStep(1, { completed: true })
+    } else {
+      updateStep(1, { completed: false })
     }
   }, [updateStep])
 
+  const setCollection = useCallback((collection: Collection) => {
+    setState(prev => ({ ...prev, collection, error: null }))
+    updateStep(2, { completed: true })
+  }, [updateStep])
+
   const analyzeFile = useCallback(async () => {
-    if (!state.file) return
+    if (!state.file || !state.collection) return
 
     setState(prev => ({ ...prev, isAnalyzing: true, error: null }))
-    updateStep(2, { current: true })
 
     try {
       const schema = await UploadService.analyzeFile(state.file)
@@ -95,7 +101,7 @@ export function useUpload() {
         isAnalyzing: false
       }))
       
-      updateStep(2, { completed: true })
+      updateStep(3, { completed: true })
       goToStep(3)
       
     } catch (error) {
@@ -105,14 +111,10 @@ export function useUpload() {
         error: error instanceof Error ? error.message : 'Erro na análise do arquivo'
       }))
     }
-  }, [state.file, updateStep, goToStep])
+  }, [state.file, state.collection, updateStep, goToStep])
 
   const updateSchema = useCallback((schema: ColumnSchema[]) => {
     setState(prev => ({ ...prev, configuredSchema: schema, error: null }))
-  }, [])
-
-  const setCollection = useCallback((collection: Collection) => {
-    setState(prev => ({ ...prev, collection, error: null }))
   }, [])
 
   const importData = useCallback(async (): Promise<string | null> => {
@@ -178,6 +180,20 @@ export function useUpload() {
     setSteps(UPLOAD_STEPS)
   }, [])
 
+  // Função para verificar se pode avançar para o próximo step
+  const canProceed = useCallback((stepNumber: number) => {
+    switch (stepNumber) {
+      case 1:
+        return !!state.file
+      case 2:
+        return !!state.collection
+      case 3:
+        return !!state.configuredSchema
+      default:
+        return false
+    }
+  }, [state.file, state.collection, state.configuredSchema])
+
   return {
     state,
     steps,
@@ -187,7 +203,8 @@ export function useUpload() {
     setCollection,
     importData,
     goToStep,
-    reset
+    reset,
+    canProceed
   }
 }
 

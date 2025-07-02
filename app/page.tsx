@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,54 +8,99 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Search, Folder, Calendar } from "lucide-react"
 import Link from "next/link"
-
-// Dados simulados - Coleções
-const mockCollections = [
-  {
-    id: "1",
-    name: "Cortes Mercearia",
-    description: "Dados de cortes e vendas da mercearia",
-    lastUpdated: "2024-01-15",
-    foldersCount: 12,
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Produção Hortifruti",
-    description: "Controle de produção de frutas e verduras",
-    lastUpdated: "2024-01-14",
-    foldersCount: 8,
-    status: "active",
-  },
-  {
-    id: "3",
-    name: "Estoque Sementes",
-    description: "Inventário e controle de sementes",
-    lastUpdated: "2024-01-12",
-    foldersCount: 15,
-    status: "processing",
-  },
-  {
-    id: "4",
-    name: "Vendas Diretas",
-    description: "Vendas diretas ao consumidor",
-    lastUpdated: "2024-01-10",
-    foldersCount: 6,
-    status: "active",
-  },
-]
+import { Collection } from "@/types/collection"
 
 export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [collections, setCollections] = useState<Collection[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const filteredCollections = mockCollections.filter(
+  useEffect(() => {
+    fetchCollections()
+  }, [])
+
+  const fetchCollections = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/collections', {
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao carregar coleções')
+      }
+
+      const data = await response.json()
+      setCollections(data)
+    } catch (error) {
+      console.error('Erro ao buscar coleções:', error)
+      setError('Erro ao carregar suas coleções')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredCollections = collections.filter(
     (collection) =>
       collection.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      collection.description.toLowerCase().includes(searchTerm.toLowerCase()),
+      (collection.description && collection.description.toLowerCase().includes(searchTerm.toLowerCase())),
   )
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pt-BR")
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-planilhorti-brown mb-2">Suas Coleções</h1>
+            <p className="text-planilhorti-brown/70">Gerencie suas coleções de dados agrícolas de forma organizada</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="border-planilhorti-brown/10 bg-white">
+                <CardHeader className="pb-3">
+                  <div className="animate-pulse">
+                    <div className="h-4 bg-planilhorti-brown/20 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-planilhorti-brown/10 rounded w-1/2"></div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-3 bg-planilhorti-brown/10 rounded w-1/4"></div>
+                    <div className="h-3 bg-planilhorti-brown/10 rounded w-1/3"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <div className="text-red-500 mb-4">
+              <Folder className="h-12 w-12 mx-auto mb-2" />
+              <p>{error}</p>
+            </div>
+            <Button onClick={fetchCollections} variant="outline">
+              Tentar Novamente
+            </Button>
+          </div>
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -98,16 +143,13 @@ export default function HomePage() {
                       </div>
                       <div>
                         <CardTitle className="text-lg text-planilhorti-brown">{collection.name}</CardTitle>
-                        <p className="text-sm text-planilhorti-brown/60 mt-1">{collection.description}</p>
+                        {collection.description && (
+                          <p className="text-sm text-planilhorti-brown/60 mt-1">{collection.description}</p>
+                        )}
                       </div>
                     </div>
-                    <Badge
-                      variant={collection.status === "active" ? "default" : "secondary"}
-                      className={
-                        collection.status === "active" ? "bg-primary text-white" : "bg-secondary text-planilhorti-brown"
-                      }
-                    >
-                      {collection.status === "active" ? "Ativo" : "Processando"}
+                    <Badge className="bg-primary text-white">
+                      Ativo
                     </Badge>
                   </div>
                 </CardHeader>
@@ -115,11 +157,13 @@ export default function HomePage() {
                   <div className="space-y-2 text-sm text-planilhorti-brown/70">
                     <div className="flex items-center justify-between">
                       <span>Pastas:</span>
-                      <span className="font-medium text-planilhorti-brown">{collection.foldersCount}</span>
+                      <span className="font-medium text-planilhorti-brown">
+                        {collection.folders_count || 0}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Calendar className="h-4 w-4" />
-                      <span>Atualizado em {formatDate(collection.lastUpdated)}</span>
+                      <span>Criado em {formatDate(collection.created_at)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -128,10 +172,12 @@ export default function HomePage() {
           ))}
         </div>
 
-        {filteredCollections.length === 0 && (
+        {filteredCollections.length === 0 && !loading && (
           <div className="text-center py-12">
             <Folder className="h-12 w-12 text-planilhorti-brown/40 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-planilhorti-brown mb-2">Nenhuma coleção encontrada</h3>
+            <h3 className="text-lg font-medium text-planilhorti-brown mb-2">
+              {searchTerm ? "Nenhuma coleção encontrada" : "Nenhuma coleção criada"}
+            </h3>
             <p className="text-planilhorti-brown/60 mb-4">
               {searchTerm ? "Tente ajustar sua busca" : "Comece criando sua primeira coleção de dados"}
             </p>

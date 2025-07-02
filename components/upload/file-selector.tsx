@@ -1,13 +1,12 @@
-// components/upload/file-selector.tsx
 "use client"
 
 import React, { useCallback } from 'react'
 import { useUpload } from '@/hooks/use-upload'
 import { Button } from '@/components/ui/button'
-import { Upload, FileText, X } from 'lucide-react'
+import { Upload, FileText, X, ArrowRight } from 'lucide-react'
 
 export function FileSelector() {
-  const { state, setFile } = useUpload()
+  const { state, setFile, goToStep, canProceed } = useUpload()
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -20,6 +19,12 @@ export function FileSelector() {
     setFile(null)
   }, [setFile])
 
+  const handleNext = useCallback(() => {
+    if (canProceed(1)) {
+      goToStep(2)
+    }
+  }, [canProceed, goToStep])
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
@@ -29,7 +34,7 @@ export function FileSelector() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-planilhorti-brown mb-2">
           Selecione o Arquivo
@@ -61,24 +66,38 @@ export function FileSelector() {
           </label>
         </div>
       ) : (
-        <div className="border border-planilhorti-brown/20 rounded-lg p-4 bg-planilhorti-cream/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <FileText className="h-8 w-8 text-primary" />
-              <div>
-                <p className="font-medium text-planilhorti-brown">{state.file.name}</p>
-                <p className="text-sm text-planilhorti-brown/70">
-                  {formatFileSize(state.file.size)}
-                </p>
+        <div className="space-y-4">
+          <div className="border border-planilhorti-brown/20 rounded-lg p-4 bg-planilhorti-cream/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <FileText className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="font-medium text-planilhorti-brown">{state.file.name}</p>
+                  <p className="text-sm text-planilhorti-brown/70">
+                    {formatFileSize(state.file.size)}
+                  </p>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRemoveFile}
+                className="text-planilhorti-brown/50 hover:text-planilhorti-brown"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRemoveFile}
-              className="text-planilhorti-brown/50 hover:text-planilhorti-brown"
+          </div>
+
+          {/* Botão Próximo */}
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleNext}
+              disabled={!canProceed(1)}
+              className="bg-primary hover:bg-primary/90"
             >
-              <X className="h-4 w-4" />
+              Próximo
+              <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </div>
         </div>

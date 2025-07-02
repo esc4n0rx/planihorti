@@ -1,4 +1,3 @@
-// components/upload/collection-selector.tsx
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -8,11 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Folder } from 'lucide-react'
+import { Plus, Folder, ArrowLeft, ArrowRight } from 'lucide-react'
 import { Collection } from '@/types/collection'
 
 export function CollectionSelector() {
-  const { state, setCollection, analyzeFile } = useUpload()
+  const { state, setCollection, goToStep, canProceed, analyzeFile } = useUpload()
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
   const [showNewCollection, setShowNewCollection] = useState(false)
@@ -76,9 +75,13 @@ export function CollectionSelector() {
     }
   }
 
-  const handleProceedToAnalysis = () => {
-    if (state.file && state.collection) {
-      analyzeFile()
+  const handleBack = () => {
+    goToStep(1)
+  }
+
+  const handleNext = async () => {
+    if (canProceed(2)) {
+      await analyzeFile()
     }
   }
 
@@ -94,7 +97,7 @@ export function CollectionSelector() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-planilhorti-brown mb-2">
           Selecione a Coleção
@@ -184,34 +187,52 @@ export function CollectionSelector() {
       )}
 
       {state.collection && (
-        <div className="space-y-4">
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-            <div className="flex items-center space-x-2">
-              <Folder className="h-5 w-5 text-primary" />
-              <div>
-                <p className="font-medium text-planilhorti-brown">
-                  {state.collection.name}
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <Folder className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium text-planilhorti-brown">
+                {state.collection.name}
+              </p>
+              {state.collection.description && (
+                <p className="text-sm text-planilhorti-brown/70">
+                  {state.collection.description}
                 </p>
-                {state.collection.description && (
-                  <p className="text-sm text-planilhorti-brown/70">
-                    {state.collection.description}
-                  </p>
-                )}
-              </div>
+              )}
             </div>
-          </div>
-
-          {/* Botão para continuar */}
-          <div className="flex justify-end">
-            <Button 
-              onClick={handleProceedToAnalysis}
-              className="bg-primary hover:bg-primary/90"
-            >
-              Analisar Arquivo
-            </Button>
           </div>
         </div>
       )}
+
+      {/* Botões de Navegação */}
+      <div className="flex justify-between">
+        <Button
+          variant="outline"
+          onClick={handleBack}
+          className="flex items-center space-x-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Voltar</span>
+        </Button>
+
+        <Button
+          onClick={handleNext}
+          disabled={!canProceed(2) || state.isAnalyzing}
+          className="bg-primary hover:bg-primary/90 flex items-center space-x-2"
+        >
+          {state.isAnalyzing ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span>Analisando...</span>
+            </>
+          ) : (
+            <>
+              <span>Analisar Arquivo</span>
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   )
 }

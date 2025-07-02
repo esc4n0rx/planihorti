@@ -6,6 +6,7 @@ export interface Collection {
   description?: string
   created_at: string
   updated_at: string
+  folders_count?: number
 }
 
 export interface CreateCollectionRequest {
@@ -16,4 +17,17 @@ export interface CreateCollectionRequest {
 export interface UpdateCollectionRequest {
   name?: string
   description?: string
+}
+
+export interface Folder {
+  id: string
+  collection_id: string
+  name: string
+  schema: any[]
+  file_name: string
+  file_size: number
+  records_count: number
+  status: 'processing' | 'active' | 'error'
+  created_at: string
+  updated_at: string
 }

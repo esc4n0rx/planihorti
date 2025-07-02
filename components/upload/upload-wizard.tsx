@@ -1,4 +1,3 @@
-// components/upload/upload-wizard.tsx
 "use client"
 
 import React from 'react'
@@ -75,30 +74,10 @@ export function UploadWizard() {
       {/* Step Content */}
       <Card>
         <CardContent className="pt-6">
-          {state.currentStep === 1 && (
-            <div className="space-y-6">
-              <FileSelector />
-              {state.file && <CollectionSelector />}
-            </div>
-          )}
-          
-          {state.currentStep === 2 && state.isAnalyzing && (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-planilhorti-brown">Analisando arquivo...</p>
-              <p className="text-sm text-planilhorti-brown/70 mt-2">
-                Detectando estrutura e tipos de dados...
-              </p>
-            </div>
-          )}
-          
-          {state.currentStep === 3 && state.detectedSchema && (
-            <SchemaConfigurator />
-          )}
-          
-          {state.currentStep === 4 && (
-            <ImportProgress />
-          )}
+          {state.currentStep === 1 && <FileSelector />}
+          {state.currentStep === 2 && <CollectionSelector />}
+          {state.currentStep === 3 && state.detectedSchema && <SchemaConfigurator />}
+          {state.currentStep === 4 && <ImportProgress />}
         </CardContent>
       </Card>
     </div>
