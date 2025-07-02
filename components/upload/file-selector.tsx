@@ -3,27 +3,66 @@
 import React, { useCallback } from 'react'
 import { useUpload } from '@/hooks/use-upload'
 import { Button } from '@/components/ui/button'
-import { Upload, FileText, X, ArrowRight } from 'lucide-react'
+import { Upload, FileText, X, ArrowRight, AlertCircle } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export function FileSelector() {
   const { state, setFile, goToStep, canProceed } = useUpload()
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    console.log(`[FileSelector] File selected:`, file?.name, file?.size)
+    
     if (file) {
+      // Validação básica do arquivo
+      const allowedTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv']
+      const allowedExtensions = ['xlsx', 'xls', 'csv']
+      const fileExtension = file.name.split('.').pop()?.toLowerCase()
+      const maxSize = 10 * 1024 * 1024 // 10MB
+      
+      if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+        console.error(`[FileSelector] Invalid file type:`, fileExtension)
+        return
+      }
+      
+      if (file.size > maxSize) {
+        console.error(`[FileSelector] File too large:`, file.size)
+        return
+      }
+      
+      if (file.size === 0) {
+        console.error(`[FileSelector] Empty file`)
+        return
+      }
+      
       setFile(file)
     }
+    
+    // Limpar o input para permitir selecionar o mesmo arquivo novamente
+    e.target.value = ''
   }, [setFile])
 
   const handleRemoveFile = useCallback(() => {
+    console.log(`[FileSelector] Removing file`)
     setFile(null)
   }, [setFile])
 
   const handleNext = useCallback(() => {
+    console.log(`[FileSelector] Next button clicked`)
+    console.log(`[FileSelector] Can proceed:`, canProceed(1))
+    console.log(`[FileSelector] Current state:`, {
+      hasFile: !!state.file,
+      fileName: state.file?.name,
+      fileSize: state.file?.size
+    })
+    
     if (canProceed(1)) {
+      console.log(`[FileSelector] Proceeding to step 2`)
       goToStep(2)
+    } else {
+      console.warn(`[FileSelector] Cannot proceed - validation failed`)
     }
-  }, [canProceed, goToStep])
+  }, [canProceed, goToStep, state.file])
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes'
@@ -88,6 +127,18 @@ export function FileSelector() {
               </Button>
             </div>
           </div>
+
+          {/* Debug Info - remover em produção */}
+          {process.env.NODE_ENV === 'development' && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Debug:</strong> Arquivo válido: {canProceed(1) ? 'Sim' : 'Não'} | 
+                Tamanho: {state.file.size} bytes | 
+                Extensão: {state.file.name.split('.').pop()}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Botão Próximo */}
           <div className="flex justify-end">

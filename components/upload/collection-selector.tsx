@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Folder, ArrowLeft, ArrowRight } from 'lucide-react'
+import { Plus, Folder, ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Collection } from '@/types/collection'
 
 export function CollectionSelector() {
@@ -19,16 +20,31 @@ export function CollectionSelector() {
   const [newCollectionDescription, setNewCollectionDescription] = useState('')
   const [creating, setCreating] = useState(false)
 
+  // Log quando o componente é renderizado
+  useEffect(() => {
+    console.log(`[CollectionSelector] Component mounted/updated`)
+    console.log(`[CollectionSelector] Current state:`, {
+      hasFile: !!state.file,
+      fileName: state.file?.name,
+      hasCollection: !!state.collection,
+      collectionName: state.collection?.name
+    })
+  })
+
   useEffect(() => {
     fetchCollections()
   }, [])
 
   const fetchCollections = async () => {
     try {
+      console.log(`[CollectionSelector] Fetching collections...`)
       const response = await fetch('/api/collections')
       if (response.ok) {
         const data = await response.json()
+        console.log(`[CollectionSelector] Collections fetched:`, data.length)
         setCollections(data)
+      } else {
+        console.error(`[CollectionSelector] Failed to fetch collections:`, response.status)
       }
     } catch (error) {
       console.error('Erro ao buscar coleções:', error)
@@ -40,6 +56,7 @@ export function CollectionSelector() {
   const handleCreateCollection = async () => {
     if (!newCollectionName.trim()) return
 
+    console.log(`[CollectionSelector] Creating collection:`, newCollectionName)
     setCreating(true)
     try {
       const response = await fetch('/api/collections', {
@@ -55,11 +72,14 @@ export function CollectionSelector() {
 
       if (response.ok) {
         const newCollection = await response.json()
+        console.log(`[CollectionSelector] Collection created:`, newCollection)
         setCollections(prev => [newCollection, ...prev])
         setCollection(newCollection)
         setShowNewCollection(false)
         setNewCollectionName('')
         setNewCollectionDescription('')
+      } else {
+        console.error(`[CollectionSelector] Failed to create collection:`, response.status)
       }
     } catch (error) {
       console.error('Erro ao criar coleção:', error)
@@ -69,6 +89,7 @@ export function CollectionSelector() {
   }
 
   const handleSelectCollection = (collectionId: string) => {
+    console.log(`[CollectionSelector] Selecting collection:`, collectionId)
     const collection = collections.find(c => c.id === collectionId)
     if (collection) {
       setCollection(collection)
@@ -76,18 +97,33 @@ export function CollectionSelector() {
   }
 
   const handleBack = () => {
+    console.log(`[CollectionSelector] Going back to step 1`)
     goToStep(1)
   }
 
   const handleNext = async () => {
+    console.log(`[CollectionSelector] Next button clicked`)
+    console.log(`[CollectionSelector] Can proceed:`, canProceed(2))
+    
     if (canProceed(2)) {
+      console.log(`[CollectionSelector] Starting file analysis...`)
       await analyzeFile()
+    } else {
+      console.warn(`[CollectionSelector] Cannot proceed - validation failed`)
     }
   }
 
   if (loading) {
     return (
       <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-medium text-planilhorti-brown mb-2">
+            Seleção da Coleção
+          </h3>
+          <p className="text-sm text-planilhorti-brown/70 mb-4">
+            Carregando coleções...
+          </p>
+        </div>
         <div className="animate-pulse">
           <div className="h-4 bg-planilhorti-brown/20 rounded w-1/4 mb-2"></div>
           <div className="h-10 bg-planilhorti-brown/10 rounded"></div>
@@ -106,6 +142,18 @@ export function CollectionSelector() {
           Escolha uma coleção existente ou crie uma nova para organizar seus dados
         </p>
       </div>
+
+      {/* Debug Info - apenas em desenvolvimento */}
+      {process.env.NODE_ENV === 'development' && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Debug:</strong> Collections loaded: {collections.length} | 
+            Selected: {state.collection?.name || 'None'} | 
+            Can proceed: {canProceed(2) ? 'Yes' : 'No'}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {!showNewCollection ? (
         <div className="space-y-4">

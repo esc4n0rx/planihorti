@@ -52,20 +52,34 @@ export function useUpload() {
   const [steps, setSteps] = useState<UploadStep[]>(UPLOAD_STEPS)
 
   const updateStep = useCallback((stepId: number, updates: Partial<UploadStep>) => {
+    console.log(`[useUpload] Updating step ${stepId}:`, updates)
     setSteps(prev => prev.map(step => 
       step.id === stepId ? { ...step, ...updates } : step
     ))
   }, [])
 
   const goToStep = useCallback((stepNumber: number) => {
-    setState(prev => ({ ...prev, currentStep: stepNumber, error: null }))
+    console.log(`[useUpload] Transitioning to step ${stepNumber}`)
+    
+    // Atualizar o estado primeiro
+    setState(prev => ({ 
+      ...prev, 
+      currentStep: stepNumber, 
+      error: null 
+    }))
+    
+    // Depois atualizar os steps
     setSteps(prev => prev.map(step => ({
       ...step,
-      current: step.id === stepNumber
+      current: step.id === stepNumber,
+      completed: step.id < stepNumber
     })))
+    
+    console.log(`[useUpload] Step transition completed to ${stepNumber}`)
   }, [])
 
   const setFile = useCallback((file: File | null) => {
+    console.log(`[useUpload] Setting file:`, file?.name, file?.size)
     setState(prev => ({ 
       ...prev, 
       file,
@@ -78,21 +92,36 @@ export function useUpload() {
       updateStep(1, { completed: true })
     } else {
       updateStep(1, { completed: false })
+      // Resetar steps subsequentes se arquivo for removido
+      setSteps(prev => prev.map(step => ({
+        ...step,
+        completed: step.id === 1 ? false : step.completed,
+        current: step.id === 1
+      })))
+      setState(prev => ({ ...prev, currentStep: 1 }))
     }
   }, [updateStep])
 
   const setCollection = useCallback((collection: Collection) => {
+    console.log(`[useUpload] Setting collection:`, collection.name)
     setState(prev => ({ ...prev, collection, error: null }))
     updateStep(2, { completed: true })
   }, [updateStep])
 
   const analyzeFile = useCallback(async () => {
-    if (!state.file || !state.collection) return
+    console.log(`[useUpload] Starting file analysis...`)
+    if (!state.file || !state.collection) {
+      console.error(`[useUpload] Missing file or collection`, { file: !!state.file, collection: !!state.collection })
+      setState(prev => ({ ...prev, error: 'Arquivo ou coleção não selecionados' }))
+      return
+    }
 
     setState(prev => ({ ...prev, isAnalyzing: true, error: null }))
 
     try {
+      console.log(`[useUpload] Analyzing file: ${state.file.name}`)
       const schema = await UploadService.analyzeFile(state.file)
+      console.log(`[useUpload] File analysis completed:`, schema)
       
       setState(prev => ({ 
         ...prev, 
@@ -105,6 +134,7 @@ export function useUpload() {
       goToStep(3)
       
     } catch (error) {
+      console.error(`[useUpload] File analysis error:`, error)
       setState(prev => ({ 
         ...prev, 
         isAnalyzing: false,
@@ -114,11 +144,20 @@ export function useUpload() {
   }, [state.file, state.collection, updateStep, goToStep])
 
   const updateSchema = useCallback((schema: ColumnSchema[]) => {
+    console.log(`[useUpload] Updating schema:`, schema.length, 'columns')
     setState(prev => ({ ...prev, configuredSchema: schema, error: null }))
   }, [])
 
   const importData = useCallback(async (): Promise<string | null> => {
-    if (!state.file || !state.configuredSchema || !state.collection) return null
+    console.log(`[useUpload] Starting data import...`)
+    if (!state.file || !state.configuredSchema || !state.collection) {
+      console.error(`[useUpload] Missing data for import`, {
+        file: !!state.file,
+        schema: !!state.configuredSchema,
+        collection: !!state.collection
+      })
+      return null
+    }
 
     setState(prev => ({ ...prev, isImporting: true, error: null }))
     updateStep(4, { current: true })
@@ -145,6 +184,7 @@ export function useUpload() {
         throw new Error(result.error || 'Erro na importação')
       }
 
+      console.log(`[useUpload] Import completed successfully`)
       setState(prev => ({ 
         ...prev, 
         isImporting: false,
@@ -156,6 +196,7 @@ export function useUpload() {
       return result.folder_id
 
     } catch (error) {
+      console.error(`[useUpload] Import error:`, error)
       setState(prev => ({ 
         ...prev, 
         isImporting: false,
@@ -166,6 +207,7 @@ export function useUpload() {
   }, [state.file, state.configuredSchema, state.collection, updateStep])
 
   const reset = useCallback(() => {
+    console.log(`[useUpload] Resetting upload state`)
     setState({
       currentStep: 1,
       file: null,
@@ -177,21 +219,32 @@ export function useUpload() {
       error: null,
       success: false
     })
-    setSteps(UPLOAD_STEPS)
+    setSteps(UPLOAD_STEPS.map(step => ({ ...step }))) // Criar nova instância
   }, [])
 
   // Função para verificar se pode avançar para o próximo step
   const canProceed = useCallback((stepNumber: number) => {
-    switch (stepNumber) {
-      case 1:
-        return !!state.file
-      case 2:
-        return !!state.collection
-      case 3:
-        return !!state.configuredSchema
-      default:
-        return false
-    }
+    const result = (() => {
+      switch (stepNumber) {
+        case 1:
+          return !!state.file && state.file.size > 0
+        case 2:
+          return !!state.collection && !!state.file
+        case 3:
+          return !!state.configuredSchema && state.configuredSchema.length > 0
+        default:
+          return false
+      }
+    })()
+    
+    console.log(`[useUpload] canProceed(${stepNumber}):`, result, {
+      file: !!state.file,
+      fileSize: state.file?.size,
+      collection: !!state.collection,
+      schema: state.configuredSchema?.length
+    })
+    
+    return result
   }, [state.file, state.collection, state.configuredSchema])
 
   return {

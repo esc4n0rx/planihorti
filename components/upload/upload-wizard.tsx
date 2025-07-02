@@ -16,6 +16,52 @@ export function UploadWizard() {
 
   const currentStepProgress = (state.currentStep / steps.length) * 100
 
+  // Debug info no console
+  React.useEffect(() => {
+    console.log(`[UploadWizard] State updated:`, {
+      currentStep: state.currentStep,
+      hasFile: !!state.file,
+      hasCollection: !!state.collection,
+      hasSchema: !!state.detectedSchema,
+      error: state.error
+    })
+  }, [state])
+
+  // Função para renderizar o conteúdo do step atual
+  const renderStepContent = () => {
+    console.log(`[UploadWizard] Rendering step ${state.currentStep}`)
+    
+    switch (state.currentStep) {
+      case 1:
+        return <FileSelector />
+      case 2:
+        return <CollectionSelector />
+      case 3:
+        if (!state.detectedSchema) {
+          return (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Erro: Schema não detectado. Volte ao step anterior.
+              </AlertDescription>
+            </Alert>
+          )
+        }
+        return <SchemaConfigurator />
+      case 4:
+        return <ImportProgress />
+      default:
+        return (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Erro: Step inválido ({state.currentStep})
+            </AlertDescription>
+          </Alert>
+        )
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Progress Header */}
@@ -71,13 +117,24 @@ export function UploadWizard() {
         </Alert>
       )}
 
+      {/* Debug Alert - apenas em desenvolvimento */}
+      {process.env.NODE_ENV === 'development' && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Debug:</strong> Step {state.currentStep} | 
+            File: {state.file?.name || 'None'} | 
+            Collection: {state.collection?.name || 'None'} | 
+            Analyzing: {state.isAnalyzing ? 'Yes' : 'No'} |
+            Current Step from Steps Array: {steps.find(s => s.current)?.id || 'None'}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Step Content */}
       <Card>
         <CardContent className="pt-6">
-          {state.currentStep === 1 && <FileSelector />}
-          {state.currentStep === 2 && <CollectionSelector />}
-          {state.currentStep === 3 && state.detectedSchema && <SchemaConfigurator />}
-          {state.currentStep === 4 && <ImportProgress />}
+          {renderStepContent()}
         </CardContent>
       </Card>
     </div>
