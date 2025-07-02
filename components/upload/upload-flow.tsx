@@ -23,6 +23,16 @@ export function UploadFlow() {
     setRenderKey(prev => prev + 1)
   }, [state.currentView])
 
+  useEffect(() => {
+    const handleForceSchemaView = () => {
+      console.log('Forced schema view triggered')
+      setRenderKey(prev => prev + 1)
+    }
+
+    window.addEventListener('force-schema-view', handleForceSchemaView)
+    return () => window.removeEventListener('force-schema-view', handleForceSchemaView)
+  }, [])
+
   // Debug: Log state changes
   useEffect(() => {
     console.log(`[UploadFlow] State updated (render ${renderKey}):`, {

@@ -117,6 +117,19 @@ export function FileSelector() {
               <X className="h-4 w-4" />
             </Button>
           </div>
+        {/* BOTÃO DE TESTE - REMOVER DEPOIS */}
+          {process.env.NODE_ENV === 'development' && state.file && !state.isAnalyzing && (
+            <Button 
+              onClick={() => {
+                console.log('Forcing view change to schema')
+                // Force view change for testing
+                window.dispatchEvent(new CustomEvent('force-schema-view'))
+              }}
+              className="w-full bg-red-500 hover:bg-red-600"
+            >
+              TESTE: Forçar ir para Schema
+            </Button>
+          )}
         </div>
       )}
 
