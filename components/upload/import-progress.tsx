@@ -1,4 +1,3 @@
-// components/upload/import-progress.tsx
 "use client"
 
 import React, { useEffect } from 'react'
@@ -11,13 +10,7 @@ import { CheckCircle, AlertCircle, Upload, FileText } from 'lucide-react'
 
 export function ImportProgress() {
   const router = useRouter()
-  const { state, importData, reset } = useUpload()
-
-  useEffect(() => {
-    if (!state.isImporting && !state.success && !state.error) {
-      importData()
-    }
-  }, [state.isImporting, state.success, state.error, importData])
+  const { state, reset } = useUpload()
 
   const handleViewCollection = () => {
     if (state.collection) {

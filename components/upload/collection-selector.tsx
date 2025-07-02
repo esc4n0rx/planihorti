@@ -7,29 +7,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Folder, ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Plus, Folder, ArrowLeft, Upload } from 'lucide-react'
 import { Collection } from '@/types/collection'
 
 export function CollectionSelector() {
-  const { state, setCollection, goToStep, canProceed, analyzeFile } = useUpload()
+  const { state, setCollection, goBackToSchema, importData } = useUpload()
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
   const [showNewCollection, setShowNewCollection] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState('')
   const [newCollectionDescription, setNewCollectionDescription] = useState('')
   const [creating, setCreating] = useState(false)
-
-  // Log quando o componente é renderizado
-  useEffect(() => {
-    console.log(`[CollectionSelector] Component mounted/updated`)
-    console.log(`[CollectionSelector] Current state:`, {
-      hasFile: !!state.file,
-      fileName: state.file?.name,
-      hasCollection: !!state.collection,
-      collectionName: state.collection?.name
-    })
-  })
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>('')
 
   useEffect(() => {
     fetchCollections()
@@ -37,14 +26,10 @@ export function CollectionSelector() {
 
   const fetchCollections = async () => {
     try {
-      console.log(`[CollectionSelector] Fetching collections...`)
       const response = await fetch('/api/collections')
       if (response.ok) {
         const data = await response.json()
-        console.log(`[CollectionSelector] Collections fetched:`, data.length)
         setCollections(data)
-      } else {
-        console.error(`[CollectionSelector] Failed to fetch collections:`, response.status)
       }
     } catch (error) {
       console.error('Erro ao buscar coleções:', error)
@@ -56,7 +41,6 @@ export function CollectionSelector() {
   const handleCreateCollection = async () => {
     if (!newCollectionName.trim()) return
 
-    console.log(`[CollectionSelector] Creating collection:`, newCollectionName)
     setCreating(true)
     try {
       const response = await fetch('/api/collections', {
@@ -72,14 +56,13 @@ export function CollectionSelector() {
 
       if (response.ok) {
         const newCollection = await response.json()
-        console.log(`[CollectionSelector] Collection created:`, newCollection)
         setCollections(prev => [newCollection, ...prev])
         setCollection(newCollection)
         setShowNewCollection(false)
         setNewCollectionName('')
         setNewCollectionDescription('')
-      } else {
-        console.error(`[CollectionSelector] Failed to create collection:`, response.status)
+        // Iniciar importação automaticamente
+        await importData()
       }
     } catch (error) {
       console.error('Erro ao criar coleção:', error)
@@ -88,42 +71,24 @@ export function CollectionSelector() {
     }
   }
 
-  const handleSelectCollection = (collectionId: string) => {
-    console.log(`[CollectionSelector] Selecting collection:`, collectionId)
+  const handleSelectCollection = async (collectionId: string) => {
     const collection = collections.find(c => c.id === collectionId)
     if (collection) {
       setCollection(collection)
+      // Iniciar importação automaticamente
+      await importData()
     }
   }
 
-  const handleBack = () => {
-    console.log(`[CollectionSelector] Going back to step 1`)
-    goToStep(1)
-  }
-
-  const handleNext = async () => {
-    console.log(`[CollectionSelector] Next button clicked`)
-    console.log(`[CollectionSelector] Can proceed:`, canProceed(2))
-    
-    if (canProceed(2)) {
-      console.log(`[CollectionSelector] Starting file analysis...`)
-      await analyzeFile()
-    } else {
-      console.warn(`[CollectionSelector] Cannot proceed - validation failed`)
+  const handleImportToSelected = async () => {
+    if (selectedCollectionId) {
+      await handleSelectCollection(selectedCollectionId)
     }
   }
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-medium text-planilhorti-brown mb-2">
-            Seleção da Coleção
-          </h3>
-          <p className="text-sm text-planilhorti-brown/70 mb-4">
-            Carregando coleções...
-          </p>
-        </div>
         <div className="animate-pulse">
           <div className="h-4 bg-planilhorti-brown/20 rounded w-1/4 mb-2"></div>
           <div className="h-10 bg-planilhorti-brown/10 rounded"></div>
@@ -134,34 +99,13 @@ export function CollectionSelector() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-planilhorti-brown mb-2">
-          Selecione a Coleção
-        </h3>
-        <p className="text-sm text-planilhorti-brown/70 mb-4">
-          Escolha uma coleção existente ou crie uma nova para organizar seus dados
-        </p>
-      </div>
-
-      {/* Debug Info - apenas em desenvolvimento */}
-      {process.env.NODE_ENV === 'development' && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Debug:</strong> Collections loaded: {collections.length} | 
-            Selected: {state.collection?.name || 'None'} | 
-            Can proceed: {canProceed(2) ? 'Yes' : 'No'}
-          </AlertDescription>
-        </Alert>
-      )}
-
       {!showNewCollection ? (
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="collection">Coleção</Label>
-            <Select onValueChange={handleSelectCollection} value={state.collection?.id || ''}>
+            <Label htmlFor="collection">Selecionar Coleção</Label>
+            <Select onValueChange={setSelectedCollectionId} value={selectedCollectionId}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione uma coleção..." />
+                <SelectValue placeholder="Escolha uma coleção..." />
               </SelectTrigger>
               <SelectContent>
                 {collections.map((collection) => (
@@ -169,7 +113,7 @@ export function CollectionSelector() {
                     <div className="flex items-center space-x-2">
                       <Folder className="h-4 w-4" />
                       <span>{collection.name}</span>
-                    </div>
+                      </div>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -184,6 +128,26 @@ export function CollectionSelector() {
             <Plus className="h-4 w-4 mr-2" />
             Criar Nova Coleção
           </Button>
+
+          {selectedCollectionId && (
+            <Button
+              onClick={handleImportToSelected}
+              className="w-full bg-primary hover:bg-primary/90"
+              disabled={state.isImporting}
+            >
+              {state.isImporting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Importando...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar Dados
+                </>
+              )}
+            </Button>
+          )}
         </div>
       ) : (
         <Card>
@@ -227,58 +191,22 @@ export function CollectionSelector() {
                 disabled={!newCollectionName.trim() || creating}
                 className="flex-1"
               >
-                {creating ? 'Criando...' : 'Criar'}
+                {creating ? 'Criando...' : 'Criar e Importar'}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {state.collection && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <Folder className="h-5 w-5 text-primary" />
-            <div>
-              <p className="font-medium text-planilhorti-brown">
-                {state.collection.name}
-              </p>
-              {state.collection.description && (
-                <p className="text-sm text-planilhorti-brown/70">
-                  {state.collection.description}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Botões de Navegação */}
-      <div className="flex justify-between">
+      {/* Botão Voltar */}
+      <div className="flex justify-start">
         <Button
           variant="outline"
-          onClick={handleBack}
+          onClick={goBackToSchema}
           className="flex items-center space-x-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Voltar</span>
-        </Button>
-
-        <Button
-          onClick={handleNext}
-          disabled={!canProceed(2) || state.isAnalyzing}
-          className="bg-primary hover:bg-primary/90 flex items-center space-x-2"
-        >
-          {state.isAnalyzing ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span>Analisando...</span>
-            </>
-          ) : (
-            <>
-              <span>Analisar Arquivo</span>
-              <ArrowRight className="h-4 w-4" />
-            </>
-          )}
+          <span>Voltar ao Schema</span>
         </Button>
       </div>
     </div>

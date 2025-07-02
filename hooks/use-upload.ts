@@ -1,44 +1,32 @@
 "use client"
 
-import { useState, useCallback } from 'react'
-import { UploadState, UploadStep, DetectedSchema, ColumnSchema} from '@/types/upload'
+import { useState, useCallback, useRef } from 'react'
+import { DetectedSchema, ColumnSchema} from '@/types/upload'
 import { Collection } from '@/types/collection'
 import { UploadService } from '@/lib/upload-service'
 
-const UPLOAD_STEPS: UploadStep[] = [
-  {
-    id: 1,
-    title: 'Seleção do Arquivo',
-    description: 'Escolha o arquivo para upload',
-    completed: false,
-    current: true
-  },
-  {
-    id: 2,
-    title: 'Seleção da Coleção',
-    description: 'Escolha ou crie uma coleção',
-    completed: false,
-    current: false
-  },
-  {
-    id: 3,
-    title: 'Configuração do Schema',
-    description: 'Revise e ajuste as configurações das colunas',
-    completed: false,
-    current: false
-  },
-  {
-    id: 4,
-    title: 'Importação',
-    description: 'Importando dados para sua coleção',
-    completed: false,
-    current: false
-  }
-]
+export interface UploadState {
+  // Dados do upload
+  file: File | null
+  collection: Collection | null
+  detectedSchema: DetectedSchema | null
+  configuredSchema: ColumnSchema[] | null
+  
+  // Estados de carregamento
+  isAnalyzing: boolean
+  isImporting: boolean
+  
+  // Estados de resultado
+  error: string | null
+  success: boolean
+  folderId: string | null
+  
+  // Fluxo
+  currentView: 'file' | 'schema' | 'collection' | 'import' | 'success'
+}
 
 export function useUpload() {
   const [state, setState] = useState<UploadState>({
-    currentStep: 1,
     file: null,
     collection: null,
     detectedSchema: null,
@@ -46,121 +34,146 @@ export function useUpload() {
     isAnalyzing: false,
     isImporting: false,
     error: null,
-    success: false
+    success: false,
+    folderId: null,
+    currentView: 'file'
   })
 
-  const [steps, setSteps] = useState<UploadStep[]>(UPLOAD_STEPS)
+  // Use ref to track state updates
+  const stateRef = useRef(state)
+  stateRef.current = state
 
-  const updateStep = useCallback((stepId: number, updates: Partial<UploadStep>) => {
-    console.log(`[useUpload] Updating step ${stepId}:`, updates)
-    setSteps(prev => prev.map(step => 
-      step.id === stepId ? { ...step, ...updates } : step
-    ))
+  const updateState = useCallback((updates: Partial<UploadState>) => {
+    console.log(`[useUpload] updateState called with:`, updates)
+    setState(prev => {
+      const newState = { ...prev, ...updates }
+      console.log(`[useUpload] State updated from:`, prev.currentView, 'to:', newState.currentView)
+      return newState
+    })
   }, [])
 
-  const goToStep = useCallback((stepNumber: number) => {
-    console.log(`[useUpload] Transitioning to step ${stepNumber}`)
-    
-    // Atualizar o estado primeiro
-    setState(prev => ({ 
-      ...prev, 
-      currentStep: stepNumber, 
-      error: null 
-    }))
-    
-    // Depois atualizar os steps
-    setSteps(prev => prev.map(step => ({
-      ...step,
-      current: step.id === stepNumber,
-      completed: step.id < stepNumber
-    })))
-    
-    console.log(`[useUpload] Step transition completed to ${stepNumber}`)
-  }, [])
+  const setError = useCallback((error: string) => {
+    console.log(`[useUpload] Setting error:`, error)
+    updateState({ error })
+  }, [updateState])
 
-  const setFile = useCallback((file: File | null) => {
-    console.log(`[useUpload] Setting file:`, file?.name, file?.size)
-    setState(prev => ({ 
-      ...prev, 
-      file,
-      detectedSchema: null,
-      configuredSchema: null,
-      error: null
-    }))
+  const clearError = useCallback(() => {
+    updateState({ error: null })
+  }, [updateState])
+
+  const setFile = useCallback(async (file: File | null) => {
+    console.log(`[useUpload] setFile called with:`, file?.name)
     
-    if (file) {
-      updateStep(1, { completed: true })
-    } else {
-      updateStep(1, { completed: false })
-      // Resetar steps subsequentes se arquivo for removido
-      setSteps(prev => prev.map(step => ({
-        ...step,
-        completed: step.id === 1 ? false : step.completed,
-        current: step.id === 1
-      })))
-      setState(prev => ({ ...prev, currentStep: 1 }))
-    }
-  }, [updateStep])
-
-  const setCollection = useCallback((collection: Collection) => {
-    console.log(`[useUpload] Setting collection:`, collection.name)
-    setState(prev => ({ ...prev, collection, error: null }))
-    updateStep(2, { completed: true })
-  }, [updateStep])
-
-  const analyzeFile = useCallback(async () => {
-    console.log(`[useUpload] Starting file analysis...`)
-    if (!state.file || !state.collection) {
-      console.error(`[useUpload] Missing file or collection`, { file: !!state.file, collection: !!state.collection })
-      setState(prev => ({ ...prev, error: 'Arquivo ou coleção não selecionados' }))
+    if (!file) {
+      console.log(`[useUpload] Clearing file and resetting state`)
+      updateState({ 
+        file: null,
+        detectedSchema: null,
+        configuredSchema: null,
+        currentView: 'file',
+        error: null,
+        isAnalyzing: false
+      })
       return
     }
 
-    setState(prev => ({ ...prev, isAnalyzing: true, error: null }))
+    // Definir arquivo e iniciar análise
+    console.log(`[useUpload] Setting file and starting analysis`)
+    updateState({ 
+      file,
+      isAnalyzing: true,
+      error: null,
+      currentView: 'file',
+      detectedSchema: null,
+      configuredSchema: null
+    })
 
     try {
-      console.log(`[useUpload] Analyzing file: ${state.file.name}`)
-      const schema = await UploadService.analyzeFile(state.file)
-      console.log(`[useUpload] File analysis completed:`, schema)
+      console.log(`[useUpload] Starting file analysis for:`, file.name)
+      const schema = await UploadService.analyzeFile(file)
+      console.log(`[useUpload] File analysis completed, schema:`, schema)
       
-      setState(prev => ({ 
-        ...prev, 
-        detectedSchema: schema,
-        configuredSchema: schema.columns,
-        isAnalyzing: false
-      }))
+      console.log(`[useUpload] Updating state with schema and changing view to 'schema'`)
       
-      updateStep(3, { completed: true })
-      goToStep(3)
+      // Force state update with setTimeout to ensure it's processed
+      setTimeout(() => {
+        updateState({ 
+          detectedSchema: schema,
+          configuredSchema: schema.columns,
+          isAnalyzing: false,
+          currentView: 'schema'
+        })
+      }, 100)
       
     } catch (error) {
       console.error(`[useUpload] File analysis error:`, error)
-      setState(prev => ({ 
-        ...prev, 
+      updateState({ 
         isAnalyzing: false,
-        error: error instanceof Error ? error.message : 'Erro na análise do arquivo'
-      }))
+        error: error instanceof Error ? error.message : 'Erro na análise do arquivo',
+        currentView: 'file'
+      })
     }
-  }, [state.file, state.collection, updateStep, goToStep])
+  }, [updateState])
 
   const updateSchema = useCallback((schema: ColumnSchema[]) => {
     console.log(`[useUpload] Updating schema:`, schema.length, 'columns')
-    setState(prev => ({ ...prev, configuredSchema: schema, error: null }))
-  }, [])
+    updateState({ 
+      configuredSchema: schema,
+      error: null
+    })
+  }, [updateState])
 
-  const importData = useCallback(async (): Promise<string | null> => {
-    console.log(`[useUpload] Starting data import...`)
-    if (!state.file || !state.configuredSchema || !state.collection) {
-      console.error(`[useUpload] Missing data for import`, {
-        file: !!state.file,
-        schema: !!state.configuredSchema,
-        collection: !!state.collection
-      })
+  const goToCollectionSelection = useCallback(() => {
+    console.log(`[useUpload] Going to collection selection`)
+    updateState({ 
+      currentView: 'collection',
+      error: null
+    })
+  }, [updateState])
+
+  const setCollection = useCallback((collection: Collection) => {
+    console.log(`[useUpload] Setting collection:`, collection.name)
+    updateState({ 
+      collection,
+      currentView: 'import',
+      error: null
+    })
+  }, [updateState])
+
+  const goBackToSchema = useCallback(() => {
+    console.log(`[useUpload] Going back to schema`)
+    updateState({ 
+      currentView: 'schema',
+      error: null
+    })
+  }, [updateState])
+
+  const goBackToFile = useCallback(() => {
+    console.log(`[useUpload] Going back to file`)
+    updateState({ 
+      currentView: 'file',
+      error: null,
+      detectedSchema: null,
+      configuredSchema: null,
+      isAnalyzing: false
+    })
+  }, [updateState])
+
+  const importData = useCallback(async () => {
+    console.log(`[useUpload] Starting import process`)
+    
+    if (!stateRef.current.file || !stateRef.current.configuredSchema || !stateRef.current.collection) {
+      const missingData = {
+        file: !stateRef.current.file,
+        schema: !stateRef.current.configuredSchema,
+        collection: !stateRef.current.collection
+      }
+      console.error(`[useUpload] Missing data for import:`, missingData)
+      setError('Dados incompletos para importação')
       return null
     }
 
-    setState(prev => ({ ...prev, isImporting: true, error: null }))
-    updateStep(4, { current: true })
+    updateState({ isImporting: true, error: null })
 
     try {
       const response = await fetch('/api/upload/import', {
@@ -169,12 +182,12 @@ export function useUpload() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          file_data: await fileToBase64(state.file),
-          file_name: state.file.name,
-          file_size: state.file.size,
-          collection_id: state.collection.id,
-          schema: state.configuredSchema,
-          folder_name: state.file.name.replace(/\.[^/.]+$/, '') // Remove extensão
+          file_data: await fileToBase64(stateRef.current.file),
+          file_name: stateRef.current.file.name,
+          file_size: stateRef.current.file.size,
+          collection_id: stateRef.current.collection.id,
+          schema: stateRef.current.configuredSchema,
+          folder_name: stateRef.current.file.name.replace(/\.[^/.]+$/, '') // Remove extensão
         }),
       })
 
@@ -185,31 +198,28 @@ export function useUpload() {
       }
 
       console.log(`[useUpload] Import completed successfully`)
-      setState(prev => ({ 
-        ...prev, 
+      updateState({ 
         isImporting: false,
-        success: true
-      }))
-      
-      updateStep(4, { completed: true })
+        success: true,
+        folderId: result.folder_id,
+        currentView: 'success'
+      })
       
       return result.folder_id
 
     } catch (error) {
       console.error(`[useUpload] Import error:`, error)
-      setState(prev => ({ 
-        ...prev, 
+      updateState({ 
         isImporting: false,
         error: error instanceof Error ? error.message : 'Erro na importação'
-      }))
+      })
       return null
     }
-  }, [state.file, state.configuredSchema, state.collection, updateStep])
+  }, [updateState, setError])
 
   const reset = useCallback(() => {
-    console.log(`[useUpload] Resetting upload state`)
-    setState({
-      currentStep: 1,
+    console.log(`[useUpload] Resetting state`)
+    updateState({
       file: null,
       collection: null,
       detectedSchema: null,
@@ -217,47 +227,24 @@ export function useUpload() {
       isAnalyzing: false,
       isImporting: false,
       error: null,
-      success: false
+      success: false,
+      folderId: null,
+      currentView: 'file'
     })
-    setSteps(UPLOAD_STEPS.map(step => ({ ...step }))) // Criar nova instância
-  }, [])
-
-  // Função para verificar se pode avançar para o próximo step
-  const canProceed = useCallback((stepNumber: number) => {
-    const result = (() => {
-      switch (stepNumber) {
-        case 1:
-          return !!state.file && state.file.size > 0
-        case 2:
-          return !!state.collection && !!state.file
-        case 3:
-          return !!state.configuredSchema && state.configuredSchema.length > 0
-        default:
-          return false
-      }
-    })()
-    
-    console.log(`[useUpload] canProceed(${stepNumber}):`, result, {
-      file: !!state.file,
-      fileSize: state.file?.size,
-      collection: !!state.collection,
-      schema: state.configuredSchema?.length
-    })
-    
-    return result
-  }, [state.file, state.collection, state.configuredSchema])
+  }, [updateState])
 
   return {
     state,
-    steps,
     setFile,
-    analyzeFile,
     updateSchema,
     setCollection,
     importData,
-    goToStep,
-    reset,
-    canProceed
+    goToCollectionSelection,
+    goBackToSchema,
+    goBackToFile,
+    setError,
+    clearError,
+    reset
   }
 }
 

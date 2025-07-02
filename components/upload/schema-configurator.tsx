@@ -1,26 +1,33 @@
-// components/upload/schema-configurator.tsx
 "use client"
 
 import React, { useState } from 'react'
 import { useUpload } from '@/hooks/use-upload'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Edit2, Eye, EyeOff } from 'lucide-react'
+import { Edit2, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react'
 import { ColumnSchema } from '@/types/upload'
 import { DataPreview } from './data-preview'
 
 export function SchemaConfigurator() {
- const { state, updateSchema, goToStep } = useUpload()
+ const { state, updateSchema, goToCollectionSelection, goBackToFile } = useUpload()
  const [editingColumn, setEditingColumn] = useState<number | null>(null)
  const [showPreview, setShowPreview] = useState(true)
 
- if (!state.detectedSchema || !state.configuredSchema) return null
+ if (!state.detectedSchema || !state.configuredSchema) {
+   return (
+     <div className="text-center py-8">
+       <p className="text-planilhorti-brown/50">Erro: Schema não detectado</p>
+       <Button onClick={goBackToFile} className="mt-4">
+         Voltar
+       </Button>
+     </div>
+   )
+ }
 
  const handleColumnUpdate = (index: number, updates: Partial<ColumnSchema>) => {
    const newSchema = [...state.configuredSchema!]
@@ -29,7 +36,7 @@ export function SchemaConfigurator() {
  }
 
  const handleProceed = () => {
-   goToStep(4)
+   goToCollectionSelection()
  }
 
  const getTypeColor = (type: string) => {
@@ -44,15 +51,6 @@ export function SchemaConfigurator() {
 
  return (
    <div className="space-y-6">
-     <div>
-       <h3 className="text-lg font-medium text-planilhorti-brown mb-2">
-         Configurar Schema das Colunas
-       </h3>
-       <p className="text-sm text-planilhorti-brown/70 mb-4">
-         Revise e ajuste as configurações detectadas automaticamente para cada coluna
-       </p>
-     </div>
-
      <div className="flex items-center justify-between">
        <div className="flex items-center space-x-4">
          <Badge variant="outline" className="text-planilhorti-brown">
@@ -199,15 +197,18 @@ export function SchemaConfigurator() {
      <div className="flex justify-between">
        <Button
          variant="outline"
-         onClick={() => goToStep(2)}
+         onClick={goBackToFile}
+         className="flex items-center space-x-2"
        >
-         Voltar
+         <ArrowLeft className="h-4 w-4" />
+         <span>Voltar</span>
        </Button>
        <Button
          onClick={handleProceed}
-         className="bg-primary hover:bg-primary/90"
+         className="bg-primary hover:bg-primary/90 flex items-center space-x-2"
        >
-         Importar Dados
+         <span>Continuar</span>
+         <ArrowRight className="h-4 w-4" />
        </Button>
      </div>
    </div>
