@@ -1,6 +1,7 @@
+// app/collection/[id]/folder/[folderId]/page.tsx
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, use } from "react"
 import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -97,7 +98,12 @@ const mockData = [
 
 const ITEMS_PER_PAGE = 5
 
-export default function FolderDataPage({ params }: { params: { id: string; folderId: string } }) {
+interface PageProps {
+  params: Promise<{ id: string; folderId: string }>
+}
+
+export default function FolderDataPage({ params }: PageProps) {
+  const { id, folderId } = use(params)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -136,7 +142,7 @@ export default function FolderDataPage({ params }: { params: { id: string; folde
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="flex items-center space-x-2 mb-4">
-            <Link href={`/collection/${params.id}`}>
+            <Link href={`/collection/${id}`}>
               <Button variant="ghost" size="sm" className="text-planilhorti-brown hover:bg-planilhorti-brown/10">
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Voltar às Pastas

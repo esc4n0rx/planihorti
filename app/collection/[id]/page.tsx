@@ -1,6 +1,7 @@
+// app/collection/[id]/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, use } from "react"
 import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,7 +46,12 @@ const mockFolders = [
   },
 ]
 
-export default function CollectionPage({ params }: { params: { id: string } }) {
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default function CollectionPage({ params }: PageProps) {
+  const { id } = use(params)
   const [searchTerm, setSearchTerm] = useState("")
 
   const filteredFolders = mockFolders.filter(
@@ -98,7 +104,7 @@ export default function CollectionPage({ params }: { params: { id: string } }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredFolders.map((folder) => (
-            <Link key={folder.id} href={`/collection/${params.id}/folder/${folder.id}`}>
+            <Link key={folder.id} href={`/collection/${id}/folder/${folder.id}`}>
               <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer border-planilhorti-brown/10 bg-white">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">

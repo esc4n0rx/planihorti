@@ -1,8 +1,8 @@
-// app/api/collections/route.ts
+// app/api/uploads/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { CreateCollectionRequest } from '@/types/collection'
+import { CreateUploadRequest } from '@/types/upload-simple'
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,9 +16,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
     }
 
-    // Buscar coleções do usuário
-    const { data: collections, error } = await supabaseAdmin
-      .from('collections')
+    const { data: uploads, error } = await supabaseAdmin
+      .from('uploads')
       .select('*')
       .eq('user_id', payload.sub)
       .order('created_at', { ascending: false })
@@ -27,27 +26,12 @@ export async function GET(request: NextRequest) {
       throw new Error(error.message)
     }
 
-    // Buscar contagem de folders separadamente para evitar problemas
-    const collectionsWithFolderCount = await Promise.all(
-      collections.map(async (collection) => {
-        const { count } = await supabaseAdmin
-          .from('folders')
-          .select('*', { count: 'exact', head: true })
-          .eq('collection_id', collection.id)
-
-        return {
-          ...collection,
-          folders_count: count || 0
-        }
-      })
-    )
-
-    return NextResponse.json(collectionsWithFolderCount)
+    return NextResponse.json(uploads)
 
   } catch (error) {
-    console.error('Get collections error:', error)
+    console.error('Get uploads error:', error)
     return NextResponse.json(
-      { error: 'Erro ao buscar coleções' },
+      { error: 'Erro ao buscar uploads' },
       { status: 500 }
     )
   }
@@ -65,22 +49,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
     }
 
-    const body: CreateCollectionRequest = await request.json()
-    const { name, description } = body
+    const body: CreateUploadRequest = await request.json()
+    const { file_name, file_size, schema, sample_data, total_rows } = body
 
-    if (!name || name.trim().length === 0) {
+    // Validações
+    if (!file_name || !schema || schema.length === 0) {
       return NextResponse.json(
-        { error: 'Nome da coleção é obrigatório' },
+        { error: 'Dados do upload incompletos' },
         { status: 400 }
       )
     }
 
-    const { data: collection, error } = await supabaseAdmin
-      .from('collections')
+    // Salvar upload no banco
+    const { data: upload, error } = await supabaseAdmin
+      .from('uploads')
       .insert({
         user_id: payload.sub,
-        name: name.trim(),
-        description: description?.trim()
+        file_name,
+        file_size,
+        schema,
+        sample_data,
+        total_rows,
+        status: 'analyzed'
       })
       .select()
       .single()
@@ -89,12 +79,12 @@ export async function POST(request: NextRequest) {
       throw new Error(error.message)
     }
 
-    return NextResponse.json(collection, { status: 201 })
+    return NextResponse.json(upload, { status: 201 })
 
   } catch (error) {
-    console.error('Create collection error:', error)
+    console.error('Create upload error:', error)
     return NextResponse.json(
-      { error: 'Erro ao criar coleção' },
+      { error: 'Erro ao salvar upload' },
       { status: 500 }
     )
   }
