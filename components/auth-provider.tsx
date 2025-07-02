@@ -1,9 +1,7 @@
 "use client"
 
-import type React from "react"
-
-import { createContext, useContext, useState, useEffect } from "react"
-import { LoginForm } from "./login-form"
+import React, { createContext, useContext, useState, useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
 
 interface User {
   id: string
@@ -13,9 +11,9 @@ interface User {
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => Promise<void>
   logout: () => void
   loading: boolean
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -31,43 +29,72 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const refreshUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setUser(data.user)
+      } else {
+        setUser(null)
+        // Redirecionar para login apenas se não estiver em páginas públicas
+        if (!['/login', '/register'].includes(pathname)) {
+          router.push('/login')
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user:', error)
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      })
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      setUser(null)
+      router.push('/login')
+    }
+  }
 
   useEffect(() => {
-    // Simular verificação de autenticação
-    const savedUser = localStorage.getItem("user")
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
-    }
-    setLoading(false)
-  }, [])
-
-  const login = async (email: string, password: string) => {
-    // Simular login
-    const mockUser = {
-      id: "1",
-      email,
-      name: email.split("@")[0],
-    }
-    setUser(mockUser)
-    localStorage.setItem("user", JSON.stringify(mockUser))
-  }
-
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("user")
-  }
+    refreshUser()
+  }, [pathname])
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     )
   }
 
-  if (!user) {
-    return <LoginForm onLogin={login} />
+  // Renderizar páginas públicas mesmo sem usuário
+  if (!user && ['/login', '/register'].includes(pathname)) {
+    return <>{children}</>
   }
 
-  return <AuthContext.Provider value={{ user, login, logout, loading }}>{children}</AuthContext.Provider>
+  // Renderizar app apenas se houver usuário autenticado
+  if (!user) {
+    return null
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, logout, loading, refreshUser }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
