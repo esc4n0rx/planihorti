@@ -1,7 +1,6 @@
 "use client"
 
 import { Header } from "@/components/layout/header"
-import { UploadFlow } from "@/components/upload/upload-flow"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
@@ -24,8 +23,6 @@ export default function UploadPage() {
             </Button>
           </Link>
         </div>
-
-        <UploadFlow />
       </main>
     </div>
   )

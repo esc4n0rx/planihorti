@@ -31,3 +31,11 @@ export interface Folder {
   created_at: string
   updated_at: string
 }
+export interface ColumnSchema {
+  name: string
+  originalName: string
+  type: 'text' | 'number' | 'date' | 'boolean'
+  required: boolean
+  position: number
+  sample_values?: (string | number | boolean | null)[]
+}
